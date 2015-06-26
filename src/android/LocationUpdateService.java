@@ -669,7 +669,6 @@ public class LocationUpdateService extends Service implements LocationListener {
             location.put("speed", l.getSpeed());
             location.put("bearing", l.getBearing());
             location.put("altitude", l.getAltitude());
-            location.put("testing", "testing_value");
             location.put("recorded_at", dao.dateToString(l.getRecordedAt()));
             params.put("location", location);
             params.put("time", Long.toString(System.currentTimeMillis()));
@@ -680,7 +679,6 @@ public class LocationUpdateService extends Service implements LocationListener {
             request.setEntity(se);
             request.setHeader("Accept", "application/json");
             request.setHeader("Content-type", "application/json");
-            request.setHeader("Cookie", "connect.sid=" + "s:5hSjf3dMIQ2YySVKow4ntb7s.RBtQR6y1fsZhcy74/dQCHsa/QkdY7qAzXrbldzAMAYw");
 
             Iterator<String> headkeys = headers.keys();
             while( headkeys.hasNext() ){
