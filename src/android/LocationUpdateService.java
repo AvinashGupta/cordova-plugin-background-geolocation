@@ -669,8 +669,10 @@ public class LocationUpdateService extends Service implements LocationListener {
             location.put("speed", l.getSpeed());
             location.put("bearing", l.getBearing());
             location.put("altitude", l.getAltitude());
+            location.put("testing", "testing_value");
             location.put("recorded_at", dao.dateToString(l.getRecordedAt()));
             params.put("location", location);
+            params.put("time", Long.toString(System.currentTimeMillis()));
 
             Log.i(TAG, "location: " + location.toString());
 
@@ -678,16 +680,18 @@ public class LocationUpdateService extends Service implements LocationListener {
             request.setEntity(se);
             request.setHeader("Accept", "application/json");
             request.setHeader("Content-type", "application/json");
+            request.setHeader("Cookie", "connect.sid=" + "s:5hSjf3dMIQ2YySVKow4ntb7s.RBtQR6y1fsZhcy74/dQCHsa/QkdY7qAzXrbldzAMAYw");
 
             Iterator<String> headkeys = headers.keys();
             while( headkeys.hasNext() ){
-        String headkey = headkeys.next();
-        if(headkey != null) {
-                    Log.d(TAG, "Adding Header: " + headkey + " : " + (String)headers.getString(headkey));
-                    request.setHeader(headkey, (String)headers.getString(headkey));
-        }
+                String headkey = headkeys.next();
+                if(headkey != null) {
+                            Log.d(TAG, "Adding Header: " + headkey + " : " + (String)headers.getString(headkey));
+                            request.setHeader(headkey, (String)headers.getString(headkey));
+                }
             }
             Log.d(TAG, "Posting to " + request.getURI().toString());
+
             HttpResponse response = httpClient.execute(request);
             Log.i(TAG, "Response received: " + response.getStatusLine());
             if (response.getStatusLine().getStatusCode() == 200) {
