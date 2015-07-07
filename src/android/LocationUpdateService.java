@@ -60,9 +60,9 @@ public class LocationUpdateService extends Service implements LocationListener {
     private static final String STATIONARY_ALARM_ACTION         = "com.tenforwardconsulting.cordova.bgloc.STATIONARY_ALARM_ACTION";
     private static final String SINGLE_LOCATION_UPDATE_ACTION   = "com.tenforwardconsulting.cordova.bgloc.SINGLE_LOCATION_UPDATE_ACTION";
     private static final String STATIONARY_LOCATION_MONITOR_ACTION = "com.tenforwardconsulting.cordova.bgloc.STATIONARY_LOCATION_MONITOR_ACTION";
-    private static final long STATIONARY_TIMEOUT                                = 5 * 1000 * 60;    // 5 minutes.
-    private static final long STATIONARY_LOCATION_POLLING_INTERVAL_LAZY         = 3 * 1000 * 60;    // 3 minutes.
-    private static final long STATIONARY_LOCATION_POLLING_INTERVAL_AGGRESSIVE   = 1 * 1000 * 60;    // 1 minute.
+    private static final long STATIONARY_TIMEOUT                                = 2000; // 5 * 1000 * 60;    // 5 minutes.
+    private static final long STATIONARY_LOCATION_POLLING_INTERVAL_LAZY         = 2000; // 3 * 1000 * 60;    // 3 minutes.
+    private static final long STATIONARY_LOCATION_POLLING_INTERVAL_AGGRESSIVE   = 2000; // 1 * 1000 * 60;    // 1 minute.
     private static final Integer MAX_STATIONARY_ACQUISITION_ATTEMPTS = 5;
     private static final Integer MAX_SPEED_ACQUISITION_ATTEMPTS = 3;
 
@@ -88,9 +88,9 @@ public class LocationUpdateService extends Service implements LocationListener {
     private Integer locationAcquisitionAttempts = 0;
 
     private Integer desiredAccuracy = 100;
-    private Integer distanceFilter = 30;
+    private Integer distanceFilter = 1; // 30;
     private Integer scaledDistanceFilter;
-    private Integer locationTimeout = 30;
+    private Integer locationTimeout = 1; // 30;
     private Boolean isDebugging;
     private String notificationTitle = "Background checking";
     private String notificationText = "ENABLED";
@@ -172,11 +172,11 @@ public class LocationUpdateService extends Service implements LocationListener {
                 e.printStackTrace();
             }
             url = intent.getStringExtra("url");
-            stationaryRadius = Float.parseFloat(intent.getStringExtra("stationaryRadius"));
-            distanceFilter = Integer.parseInt(intent.getStringExtra("distanceFilter"));
+            stationaryRadius = 2; // Float.parseFloat(intent.getStringExtra("stationaryRadius"));
+            // distanceFilter = Integer.parseInt(intent.getStringExtra("distanceFilter"));
             scaledDistanceFilter = distanceFilter;
-            desiredAccuracy = Integer.parseInt(intent.getStringExtra("desiredAccuracy"));
-            locationTimeout = Integer.parseInt(intent.getStringExtra("locationTimeout"));
+            // desiredAccuracy = Integer.parseInt(intent.getStringExtra("desiredAccuracy"));
+            // locationTimeout = Integer.parseInt(intent.getStringExtra("locationTimeout"));
             isDebugging = Boolean.parseBoolean(intent.getStringExtra("isDebugging"));
             notificationTitle = intent.getStringExtra("notificationTitle");
             notificationText = intent.getStringExtra("notificationText");
@@ -273,10 +273,12 @@ public class LocationUpdateService extends Service implements LocationListener {
             List<String> matchingProviders = locationManager.getAllProviders();
             for (String provider: matchingProviders) {
                 if (provider != LocationManager.PASSIVE_PROVIDER) {
+                    Log.i(TAG, "- registering requestLocationUpdates::::::: 0 0  taken");
                     locationManager.requestLocationUpdates(provider, 0, 0, this);
                 }
             }
         } else {
+            Log.i(TAG, "- registering requestLocationUpdates::::::: " + locationTimeout + " ; " + scaledDistanceFilter);
             locationManager.requestLocationUpdates(locationManager.getBestProvider(criteria, true), locationTimeout*1000, scaledDistanceFilter, this);
         }
     }
@@ -498,11 +500,13 @@ public class LocationUpdateService extends Service implements LocationListener {
 
         if (isDebugging) {
             Toast.makeText(this, "Stationary exit in " + (stationaryRadius-distance) + "m", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "stationaryRadius;distance " + stationaryRadius + ";" + distance + "m", Toast.LENGTH_LONG).show();
         }
-
+        // Log.i(TAG, "- onPollStationaryLocation location: " + location.latitude + " ; " + location.longitude);
         // TODO http://www.cse.buffalo.edu/~demirbas/publications/proximity.pdf
         // determine if we're almost out of stationary-distance and increase monitoring-rate.
         Log.i(TAG, "- distance from stationary location: " + distance);
+        // onExitStationaryRegion(location);
         if (distance > stationaryRadius) {
             onExitStationaryRegion(location);
         } else if (distance > 0) {
@@ -682,14 +686,13 @@ public class LocationUpdateService extends Service implements LocationListener {
 
             Iterator<String> headkeys = headers.keys();
             while( headkeys.hasNext() ){
-                String headkey = headkeys.next();
-                if(headkey != null) {
-                            Log.d(TAG, "Adding Header: " + headkey + " : " + (String)headers.getString(headkey));
-                            request.setHeader(headkey, (String)headers.getString(headkey));
-                }
+        String headkey = headkeys.next();
+        if(headkey != null) {
+                    Log.d(TAG, "Adding Header: " + headkey + " : " + (String)headers.getString(headkey));
+                    request.setHeader(headkey, (String)headers.getString(headkey));
+        }
             }
             Log.d(TAG, "Posting to " + request.getURI().toString());
-
             HttpResponse response = httpClient.execute(request);
             Log.i(TAG, "Response received: " + response.getStatusLine());
             if (response.getStatusLine().getStatusCode() == 200) {

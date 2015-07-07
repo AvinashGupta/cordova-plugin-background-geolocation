@@ -26,10 +26,10 @@ public class BackgroundGpsPlugin extends CordovaPlugin {
     private String url;
     private String params;
     private String headers;
-    private String stationaryRadius = "30";
+    private String stationaryRadius = "5"; // "30";
     private String desiredAccuracy = "100";
-    private String distanceFilter = "30";
-    private String locationTimeout = "60";
+    private String distanceFilter = "2"; // "30";
+    private String locationTimeout = "2"; // "60";
     private String isDebugging = "false";
     private String notificationTitle = "Background tracking";
     private String notificationText = "ENABLED";
