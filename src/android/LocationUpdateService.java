@@ -934,7 +934,11 @@ public class LocationUpdateService extends Service implements LocationListener {
             for (com.tenforwardconsulting.cordova.bgloc.data.Location savedLocation : locationDAO.getAllLocations()) {
                 Log.d(TAG, "Posting saved location");
                 if (postLocation(savedLocation, locationDAO)) {
-                    locationDAO.deleteLocation(savedLocation);
+                    if (savedLocation.getAccuracy() < 50) {
+                        locationDAO.deleteLocation(savedLocation);
+                    }else{
+                        Log.i(TAG, "location data point DROPED because accuracy is less than 50m");
+                    }
                 }
             }
             return true;
