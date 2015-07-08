@@ -52,9 +52,50 @@ import android.os.SystemClock;
 import android.util.Log;
 import android.widget.Toast;
 
+// import static com.tenforwardconsulting.cordova.bgloc.KalmanLocationManager.KALMAN_PROVIDER;
+// import static com.tenforwardconsulting.cordova.bgloc.KalmanLocationManager.UseProvider;
+
 import static java.lang.Math.*;
 
 public class LocationUpdateService extends Service implements LocationListener {
+
+    // Kalman  Static constant
+    private static final int THREAD_PRIORITY = 5;
+
+    /**
+     * Provider string assigned to predicted Location objects.
+     */
+    public static final String KALMAN_PROVIDER = "kalman";
+
+    private static final double DEG_TO_METER = 111225.0;
+    private static final double METER_TO_DEG = 1.0 / DEG_TO_METER;
+
+    private static final double TIME_STEP = 1.0;
+    private static final double COORDINATE_NOISE = 4.0 * METER_TO_DEG;
+    private static final double ALTITUDE_NOISE = 10.0;
+
+    /**
+     * Three 1-dimension trackers, since the dimensions are independent and can avoid using matrices.
+     */
+    private Tracker1D mLatitudeTracker, mLongitudeTracker, mAltitudeTracker;
+
+    /**
+     * Specifies which of the native location providers to use, or a combination of them.
+     */
+    // public enum UseProvider { GPS, NET, GPS_AND_NET }
+
+    // // Settings
+    // private final UseProvider mUseProvider;
+    // private final long mMinTimeFilter;
+    // private final long mMinTimeGpsProvider;
+    // private final long mMinTimeNetProvider;
+    // private final LocationListener mClientLocationListener;
+    // private final boolean mForwardProviderUpdates;
+
+    private Location mLastLocation;
+
+
+
     private static final String TAG = "LocationUpdateService";
     private static final String STATIONARY_REGION_ACTION        = "com.tenforwardconsulting.cordova.bgloc.STATIONARY_REGION_ACTION";
     private static final String STATIONARY_ALARM_ACTION         = "com.tenforwardconsulting.cordova.bgloc.STATIONARY_ALARM_ACTION";
@@ -266,7 +307,7 @@ public class LocationUpdateService extends Service implements LocationListener {
             isAcquiringStationaryLocation = true;
         }
 
-        // Temporarily turn on super-aggressive geolocation on all providers when acquiring velocity or stationary location.
+        // Temporarily turn on super-aggressive geolocation on all ons when acquiring velocity or stationary location.
         if (isAcquiringSpeed || isAcquiringStationaryLocation) {
             locationAcquisitionAttempts = 0;
             // Turn on each provider aggressively for a short period of time
@@ -348,7 +389,128 @@ public class LocationUpdateService extends Service implements LocationListener {
         return bestResult;
     }
 
+    Location newLoc(){
+        // Calculate prediction
+        mLongitudeTracker.predict(0.0);
+
+        if (mLastLocation.hasAltitude())
+            mAltitudeTracker.predict(0.0);
+
+        // Prepare location
+        final Location location = new Location(KALMAN_PROVIDER);
+
+        // Latitude
+        mLatitudeTracker.predict(0.0);
+        location.setLatitude(mLatitudeTracker.getPosition());
+
+        // Longitude
+        mLongitudeTracker.predict(0.0);
+        location.setLongitude(mLongitudeTracker.getPosition());
+
+        // Altitude
+        if (mLastLocation.hasAltitude()) {
+
+            mAltitudeTracker.predict(0.0);
+            location.setAltitude(mAltitudeTracker.getPosition());
+        }
+
+        // Speed
+        if (mLastLocation.hasSpeed())
+            location.setSpeed(mLastLocation.getSpeed());
+
+        // Bearing
+        if (mLastLocation.hasBearing())
+            location.setBearing(mLastLocation.getBearing());
+
+        // Accuracy (always has)
+        location.setAccuracy((float) (mLatitudeTracker.getAccuracy() * DEG_TO_METER));
+
+        // Set times
+        location.setTime(System.currentTimeMillis());
+
+        if (Build.VERSION.SDK_INT >= 17)
+            location.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
+        return location;
+    }
+
     public void onLocationChanged(Location location) {
+        // Reusable
+        final double accuracy = location.getAccuracy();
+        double position, noise;
+
+        // Latitude
+        position = location.getLatitude();
+        noise = accuracy * METER_TO_DEG;
+
+        if (mLatitudeTracker == null) {
+
+            mLatitudeTracker = new Tracker1D(TIME_STEP, COORDINATE_NOISE);
+            mLatitudeTracker.setState(position, 0.0, noise);
+        }
+
+        mLatitudeTracker.update(position, noise);
+
+        // Longitude
+        position = location.getLongitude();
+        noise = accuracy * Math.cos(Math.toRadians(location.getLatitude())) * METER_TO_DEG ;
+
+        if (mLongitudeTracker == null) {
+
+            mLongitudeTracker = new Tracker1D(TIME_STEP, COORDINATE_NOISE);
+            mLongitudeTracker.setState(position, 0.0, noise);
+        }
+
+        mLongitudeTracker.update(position, noise);
+
+        // Altitude
+        if (location.hasAltitude()) {
+
+            position = location.getAltitude();
+            noise = accuracy;
+
+            if (mAltitudeTracker == null) {
+
+                mAltitudeTracker = new Tracker1D(TIME_STEP, ALTITUDE_NOISE);
+                mAltitudeTracker.setState(position, 0.0, noise);
+            }
+
+            mAltitudeTracker.update(position, noise);
+        }
+
+        // // Forward update if requested
+        // if (mForwardProviderUpdates) {
+
+        //     mClientHandler.post(new Runnable() {
+
+        //         @Override
+        //         public void run() {
+
+        //             mClientLocationListener.onLocationChanged(location);
+        //         }
+        //     });
+        // }
+
+        // Update last location
+        if (location.getProvider().equals(LocationManager.GPS_PROVIDER)
+                || mLastLocation == null || mLastLocation.getProvider().equals(LocationManager.NETWORK_PROVIDER)) {
+
+            mLastLocation = new Location(location);
+        }
+
+        // // Enable filter timer if this is our first measurement
+        // if (mOwnHandler == null) {
+
+        //     mOwnHandler = new Handler(mLooper, mOwnHandlerCallback);
+        //     mOwnHandler.sendEmptyMessageDelayed(0, mMinTimeFilter);
+        // }
+
+        Location newLoc1 = newLoc();
+        Log.i(TAG, "original location from tracker" + location.toString());
+        Log.i(TAG, "new location from tracker" + newLoc1.toString());
+
+        // location = newLoc1;
+
+
         Log.d(TAG, "- onLocationChanged: " + location.getLatitude() + "," + location.getLongitude() + ", accuracy: " + location.getAccuracy() + ", isMoving: " + isMoving + ", speed: " + location.getSpeed());
 
         if (!isMoving && !isAcquiringStationaryLocation && stationaryLocation==null) {
