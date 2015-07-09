@@ -131,7 +131,7 @@ public class LocationUpdateService extends Service implements LocationListener {
     private Integer desiredAccuracy = 100;
     private Integer distanceFilter = 1; // 30;
     private Integer scaledDistanceFilter;
-    private Integer locationTimeout = 1; // 30;
+    private Integer locationTimeout = 15; // 30;
     private Boolean isDebugging;
     private String notificationTitle = "Background checking";
     private String notificationText = "ENABLED";
@@ -837,7 +837,7 @@ public class LocationUpdateService extends Service implements LocationListener {
             location.put("altitude", l.getAltitude());
             location.put("recorded_at", dao.dateToString(l.getRecordedAt()));
             params.put("location", location);
-            params.put("time", Long.toString(System.currentTimeMillis()));
+            params.put("time", Long.toString(l.getRecordedAt().getTime()));
 
             Log.i(TAG, "location: " + location.toString());
 
@@ -845,7 +845,7 @@ public class LocationUpdateService extends Service implements LocationListener {
             request.setEntity(se);
             request.setHeader("Accept", "application/json");
             request.setHeader("Content-type", "application/json");
-
+            
             Iterator<String> headkeys = headers.keys();
             while( headkeys.hasNext() ){
         String headkey = headkeys.next();
@@ -931,13 +931,24 @@ public class LocationUpdateService extends Service implements LocationListener {
         protected Boolean doInBackground(Object...objects) {
             Log.d(TAG, "Executing PostLocationTask#doInBackground");
             LocationDAO locationDAO = DAOFactory.createLocationDAO(LocationUpdateService.this.getApplicationContext());
+            com.tenforwardconsulting.cordova.bgloc.data.Location finalLocation = null;
             for (com.tenforwardconsulting.cordova.bgloc.data.Location savedLocation : locationDAO.getAllLocations()) {
+                if(savedLocation == null){
+                    continue;
+                }
+                if(finalLocation == null){
+                    finalLocation = savedLocation;
+                    continue;
+                }
+                if (Float.parseFloat(savedLocation.getAccuracy()) < Float.parseFloat(finalLocation.getAccuracy())) {
+                    finalLocation = savedLocation;
+                }
+            }
+            if (finalLocation != null) {
                 Log.d(TAG, "Posting saved location");
-                if (postLocation(savedLocation, locationDAO)) {
-                    if (savedLocation.getAccuracy() < 50) {
+                if (postLocation(finalLocation, locationDAO)) {
+                    for (com.tenforwardconsulting.cordova.bgloc.data.Location savedLocation : locationDAO.getAllLocations()) {
                         locationDAO.deleteLocation(savedLocation);
-                    }else{
-                        Log.i(TAG, "location data point DROPED because accuracy is less than 50m");
                     }
                 }
             }
