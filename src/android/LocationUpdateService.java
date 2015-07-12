@@ -838,7 +838,7 @@ public class LocationUpdateService extends Service implements LocationListener {
             location.put("recorded_at", dao.dateToString(l.getRecordedAt()));
             params.put("location", location);
             params.put("time", Long.toString(l.getRecordedAt().getTime()));
-
+            
             Log.i(TAG, "location: " + location.toString());
 
             StringEntity se = new StringEntity(params.toString());
