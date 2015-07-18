@@ -131,7 +131,7 @@ public class LocationUpdateService extends Service implements LocationListener {
     private Integer desiredAccuracy = 100;
     private Integer distanceFilter = 1; // 30;
     private Integer scaledDistanceFilter;
-    private Integer locationTimeout = 15; // 30;
+    private Integer locationTimeout = 3; // 30;
     private Boolean isDebugging;
     private String notificationTitle = "Background checking";
     private String notificationText = "ENABLED";
